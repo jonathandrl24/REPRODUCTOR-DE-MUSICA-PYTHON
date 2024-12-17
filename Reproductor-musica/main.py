@@ -2,10 +2,11 @@ import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow,
                              QLabel, QPushButton, QDockWidget,
                              QStatusBar, QTabWidget, QWidget, QHBoxLayout,
-                             QVBoxLayout, QListWidget)
+                             QVBoxLayout, QListWidget, QFileDialog, QListWidgetItem)
+import os
 
-from PyQt6.QtGui import QPixmap, QAction, QKeySequence
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap, QAction, QKeySequence, QIcon
+from PyQt6.QtCore import Qt, QStandardPaths
 
 class MainWindow(QMainWindow):
     
@@ -79,8 +80,17 @@ class MainWindow(QMainWindow):
         self.listar_musica_action.triggered.connect(self.list_music)
         self.listar_musica_action.setChecked(True)
         
+        self.open_folder_music_action = QAction("Abrir Carpeta",self)
+        self.open_folder_music_action.setShortcut(QKeySequence("Ctrl+O"))
+        self.open_folder_music_action.setStatusTip("Aqui puedes Abrir una carpeta con la musica a reproducir")
+        self.open_folder_music_action.triggered.connect(self.open_folder_music)
+        
     def create_menu(self):
         self.menuBar()
+        
+        menu_file = self.menuBar().addMenu("File")
+        menu_file.addAction(self.open_folder_music_action)
+        
         menu_view = self.menuBar().addMenu("View")
         menu_view.addAction(self.listar_musica_action)
         
@@ -94,6 +104,21 @@ class MainWindow(QMainWindow):
         )
         self.dock.setWidget(self.songs_list)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
+        
+        
+    def  open_folder_music(self):
+        initial_dir = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.MusicLocation
+        )
+        selected_folder = QFileDialog.getExistingDirectory(None, "Seleccione una Carpeta", initial_dir)
+        icon = QIcon("img/mp3.png")
+        for archivo in os.listdir(selected_folder):
+            ruta_archivo = os.path.join(selected_folder, archivo)
+            if ruta_archivo.endswith(".mp3"):
+                item = QListWidgetItem(archivo)
+                item.setIcon(icon)
+                self.songs_list.addItem(item)
+                
 
     def list_music(self):
         if self.listar_musica_action.isChecked():
