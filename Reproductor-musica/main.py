@@ -4,7 +4,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow,
                              QStatusBar, QTabWidget, QWidget, QHBoxLayout,
                              QVBoxLayout, QListWidget)
 
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QPixmap, QAction, QKeySequence
+from PyQt6.QtCore import Qt
 
 class MainWindow(QMainWindow):
     
@@ -18,6 +19,9 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 800, 500)
         self.setWindowTitle("Reproductor de musica")
         self.generate_main_window()
+        self.create_dock()
+        self.create_action()
+        self.create_menu()
         self.show()
         
     def generate_main_window(self):
@@ -66,8 +70,39 @@ class MainWindow(QMainWindow):
         main_v_box.addWidget(buttons_container)
         
         self.reproductor_container.setLayout(main_v_box)
-    
-    
+        
+        
+    def create_action(self):
+        self.listar_musica_action = QAction("Listar Musica",self, checkable=True)
+        self.listar_musica_action.setShortcut(QKeySequence("Ctrl+L"))
+        self.listar_musica_action.setStatusTip("Aqui puedes listar la musica a reproducir")
+        self.listar_musica_action.triggered.connect(self.list_music)
+        self.listar_musica_action.setChecked(True)
+        
+    def create_menu(self):
+        self.menuBar()
+        menu_view = self.menuBar().addMenu("View")
+        menu_view.addAction(self.listar_musica_action)
+        
+    def create_dock(self):
+        self.songs_list = QListWidget()
+        self.dock = QDockWidget()
+        self.dock.setWindowTitle("Lista de Reproduccion")
+        self.dock.setAllowedAreas(
+            Qt.DockWidgetArea.LeftDockWidgetArea |
+            Qt.DockWidgetArea.RightDockWidgetArea
+        )
+        self.dock.setWidget(self.songs_list)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
+
+    def list_music(self):
+        if self.listar_musica_action.isChecked():
+            self.dock.show()
+        else:
+            self.dock.hide()
+            
+            
+            
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
