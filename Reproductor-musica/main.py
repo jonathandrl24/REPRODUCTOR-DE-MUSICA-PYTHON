@@ -15,6 +15,9 @@ class MainWindow(QMainWindow):
         self.initialize_ui()
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        with open("styles.css", "r") as file:
+            style = file.read()
+        self.setStyleSheet(style)
         
     def initialize_ui(self):
         self.setGeometry(100, 100, 800, 500)
