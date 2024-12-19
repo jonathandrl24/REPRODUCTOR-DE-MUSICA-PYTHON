@@ -1,5 +1,112 @@
 QMainWindow {
-    background-image: url("img/brick_wall_texture_192138_3840x2400.jpg");
+    background-image: url("img/background2.png");
     background-position: center;
     background-repeat: no-repeat;
+}
+
+QDockWidget {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-weight: bold;
+}
+QListWidget {
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+}
+QTabWidget::pane {
+    background: rgba(255, 255, 255, 0.1);
+    border: 0;
+}
+QTabBar::tab {
+    background-color: rgba(117, 117, 117, 0.5);
+    color: white;
+    font-weight: bold;
+}
+
+QPushButton#button_repeat {
+    background-color: gray;
+    image: url(img/icon-repeat.png);
+    border-radius: 20px;
+    padding: 7px;
+}
+QPushButton#button_repeat:hover {
+    background-color: rgba(255, 255, 255, 0.962);
+}
+QPushButton#button_repeat:pressed {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+QPushButton#button_before {
+    background-color: gray;
+    image: url(img/before-icon.png);
+    border-radius: 20px;
+    padding: 7px;
+}
+QPushButton#button_before:hover {
+    background-color: rgb(255, 255, 255);
+}
+QPushButton#button_before:pressed {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+QPushButton#button_play {
+    background-color: gray;
+    image: url(img/play-icon.png);
+    border-radius: 25px;
+    padding: 7px;
+}
+QPushButton#button_play:hover {
+    background-color: rgb(255, 255, 255);
+}
+QPushButton#button_play:pressed {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+QPushButton#button_next {
+    background-color: gray;
+    image: url(img/next-icon.png);
+    border-radius: 20px;
+    padding: 7px;
+}
+QPushButton#button_next:hover {
+    background-color: rgb(255, 255, 255);
+}
+QPushButton#button_next:pressed {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+QPushButton#button_random {
+    background-color: gray;
+    image: url(img/random-icon.png);
+    border-radius: 20px;
+    padding: 7px;
+}
+QPushButton#button_random:hover {
+    background-color: rgb(255, 255, 255);
+}
+QPushButton#button_random:pressed {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+QStatusBar {
+    background-color: rgb(78, 78, 78);
+    color:white;
+    font-weight: bold;
+}
+
+QMenuBar{
+    background-color: rgb(29, 29, 29);
+    color:white;
+    font-weight: bold;
+}
+QMenuBar QMenu{
+    background-color: rgb(29, 29, 29);
+    color:white;
+    font-weight: bold;
+}
+QMenuBar QMenu::item:selected {
+    background-color: rgba(169, 169, 169, 0.848);
+}
+QMenuBar QMenu::item:pressed {
+    background-color: grey;
 }
