@@ -131,15 +131,17 @@ class MainWindow(QMainWindow):
         initial_dir = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.MusicLocation
         )
-        self.current_music_folder = QFileDialog.getExistingDirectory(None, "Seleccione una Carpeta", initial_dir)
+        selected_folder = QFileDialog.getExistingDirectory(None, "Seleccione una Carpeta", initial_dir)
+        if not selected_folder:
+            self.status_bar.showMessage("No se selecciono ninguna carpeta", 5000)
+            return
+        
+        self.current_music_folder = selected_folder
         icon = QIcon("img/mp3.png")
+        self.songs_list.clear()
         for archivo in os.listdir(self.current_music_folder):
             ruta_archivo = os.path.join(self.current_music_folder, archivo)
-            if ruta_archivo.endswith(".mp3"):
-                item = QListWidgetItem(archivo)
-                item.setIcon(icon)
-                self.songs_list.addItem(item)
-            elif ruta_archivo.endswith(".wav"):
+            if ruta_archivo.endswith(".mp3") or ruta_archivo.endswith(".wav"):
                 item = QListWidgetItem(archivo)
                 item.setIcon(icon)
                 self.songs_list.addItem(item)
@@ -164,6 +166,10 @@ class MainWindow(QMainWindow):
             
     # Slot Handling
     def play_pause_song(self):
+        if not self.player:
+            self.status_bar.showMessage("Seleccione una cancion antes para reproducir", 5000)
+            return
+        
         if self.playing_reproductor:
             self.button_play.setStyleSheet("image: url(img/stop-icon.png)")
             self.player.pause()
