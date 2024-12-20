@@ -11,6 +11,8 @@ from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QPixmap, QAction, QKeySequence, QIcon
 from PyQt6.QtCore import Qt, QStandardPaths
 
+import random
+
 class MainWindow(QMainWindow):
     
     def __init__(self):
@@ -24,6 +26,11 @@ class MainWindow(QMainWindow):
             style = file.read()
         self.setStyleSheet(style)
         self.playing_reproductor = False
+        self.is_randomized = False  
+        self.playlist_order = []  
+        self.current_index = -1
+        self.is_repeat_mode = False 
+        
         
     def initialize_ui(self):
         self.setGeometry(100, 100, 800, 500)
@@ -69,7 +76,6 @@ class MainWindow(QMainWindow):
         self.button_before.setObjectName("button_before")
         self.button_play = QPushButton()
         self.button_play.setObjectName("button_play")
-        self.button_play.clicked.connect(self.play_pause_song)
         self.button_next = QPushButton()
         self.button_next.setObjectName("button_next")
         self.button_random = QPushButton()
@@ -91,6 +97,13 @@ class MainWindow(QMainWindow):
         main_v_box.addWidget(buttons_container)
         
         self.reproductor_container.setLayout(main_v_box)
+        
+        # Implementacion botones
+        self.button_play.clicked.connect(self.play_pause_song)
+        self.button_next.clicked.connect(self.next_song)
+        self.button_before.clicked.connect(self.previous_song)
+        self.button_random.clicked.connect(self.toggle_randomize)
+        self.button_repeat.clicked.connect(self.toggle_repeat_mode)
         
         
     def create_action(self):
@@ -127,15 +140,15 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
         
         
-    def  open_folder_music(self):
+    def open_folder_music(self):
         initial_dir = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.MusicLocation
         )
         selected_folder = QFileDialog.getExistingDirectory(None, "Seleccione una Carpeta", initial_dir)
         if not selected_folder:
-            self.status_bar.showMessage("No se selecciono ninguna carpeta", 5000)
+            self.status_bar.showMessage("No se seleccionó ninguna carpeta", 5000)
             return
-        
+
         self.current_music_folder = selected_folder
         icon = QIcon("img/mp3.png")
         self.songs_list.clear()
@@ -145,6 +158,8 @@ class MainWindow(QMainWindow):
                 item = QListWidgetItem(archivo)
                 item.setIcon(icon)
                 self.songs_list.addItem(item)
+
+        self.initialize_playlist_order()  
                 
 
     def list_music(self):
@@ -189,13 +204,76 @@ class MainWindow(QMainWindow):
     def handle_song_selection(self):
         selected_item = self.songs_list.currentItem()
         if selected_item:
+            self.current_index = self.songs_list.currentRow()
             song_name = selected_item.data(0)
             song_folder_path = os.path.join(self.current_music_folder, song_name)
-            # Play music with current path
             self.create_player()
             source = QUrl.fromLocalFile(song_folder_path)
             self.player.setSource(source)
             self.playing_reproductor = True
+            
+            
+    def next_song(self):
+        if self.current_index == -1:
+            self.status_bar.showMessage("Seleccione una canción primero", 5000)
+            return
+        current_position = self.playlist_order.index(self.current_index)
+        next_position = (current_position + 1) % len(self.playlist_order)
+        self.current_index = self.playlist_order[next_position]
+
+        self.songs_list.setCurrentRow(self.current_index)
+        self.handle_song_selection()
+
+
+    def previous_song(self):
+        if self.current_index == -1:
+            self.status_bar.showMessage("Seleccione una canción primero", 5000)
+            return
+        current_position = self.playlist_order.index(self.current_index)
+        previous_position = (current_position - 1) % len(self.playlist_order)
+        self.current_index = self.playlist_order[previous_position]
+
+        self.songs_list.setCurrentRow(self.current_index)
+        self.handle_song_selection()
+        
+        
+    # randomizar lista
+    def toggle_randomize(self):
+        if not self.current_music_folder:
+            self.status_bar.showMessage("Primero abre una carpeta de música", 5000)
+            return
+
+        self.is_randomized = not self.is_randomized
+
+        if self.is_randomized:
+            random.shuffle(self.playlist_order)  
+            self.status_bar.showMessage("Modo aleatorio activado", 5000)
+        else:
+            self.playlist_order = list(range(self.songs_list.count()))  
+            self.status_bar.showMessage("Modo aleatorio desactivado", 5000)
+
+    def initialize_playlist_order(self):
+        self.playlist_order = list(range(self.songs_list.count()))
+        
+        
+    #repetir cancion
+    def toggle_repeat_mode(self):
+        self.is_repeat_mode = not self.is_repeat_mode
+        if self.is_repeat_mode:
+            self.button_repeat.setStyleSheet("image: url(img/repeat-on-icon.png)")
+            self.status_bar.showMessage("Modo repetir activado", 5000)
+        else:
+            self.button_repeat.setStyleSheet("image: url(img/repeat-off-icon.png)")
+            self.status_bar.showMessage("Modo repetir desactivado", 5000)
+
+    def media_status_changed(self, status):
+        if status == QMediaPlayer.MediaStatus.EndOfMedia:
+            if self.is_repeat_mode:
+                self.player.setPosition(0)
+                self.player.play()
+            else:
+                self.next_song()
+        
             
             
 if __name__ == "__main__":
