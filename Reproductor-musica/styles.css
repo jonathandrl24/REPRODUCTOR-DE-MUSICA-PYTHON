@@ -25,7 +25,7 @@ QTabBar::tab {
 
 QPushButton#button_repeat {
     background-color: gray;
-    image: url(img/icon-repeat.png);
+    image: url(img/repeat-off-icon.png);
     border-radius: 20px;
     padding: 7px;
 }
@@ -77,7 +77,7 @@ QPushButton#button_next:pressed {
 
 QPushButton#button_random {
     background-color: gray;
-    image: url(img/random-icon.png);
+    image: url(img/random-off-icon.png);
     border-radius: 20px;
     padding: 7px;
 }

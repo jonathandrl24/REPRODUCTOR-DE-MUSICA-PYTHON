@@ -30,6 +30,7 @@ class MainWindow(QMainWindow):
         self.playlist_order = []  
         self.current_index = -1
         self.is_repeat_mode = False 
+        self.is_changing_track = False 
         
         
     def initialize_ui(self):
@@ -194,12 +195,33 @@ class MainWindow(QMainWindow):
             self.player.play()
             self.playing_reproductor = True
     
+
+    def media_status_changed(self, status):
+        if self.is_changing_track:
+            return
+        print(f"Status: {status} - Playback state: {self.player.playbackState()}")
     
-    def media_status_changed(self,status):
-        print("status:", status)
-        if status == QMediaPlayer.MediaStatus.LoadedMedia:
-            self.player.play()
-    
+        if status == QMediaPlayer.MediaStatus.EndOfMedia:
+            self.is_changing_track = True
+            if self.is_repeat_mode:
+                print("Reproduciendo en modo repetir")
+                self.player.setPosition(0)  
+                self.player.play()
+            else:
+                print("Pasando a la siguiente canción")
+                self.next_song()
+            self.is_changing_track = False
+        elif status == QMediaPlayer.MediaStatus.InvalidMedia:
+            self.status_bar.showMessage("Error al cargar el archivo de audio", 5000)
+        elif status == QMediaPlayer.MediaStatus.LoadingMedia:
+            print("Cargando archivo...")
+        elif status == QMediaPlayer.MediaStatus.LoadedMedia:
+            print("Archivo cargado correctamente.")
+        elif status == QMediaPlayer.MediaStatus.BufferingMedia:
+            print("Bufferizando audio...")
+
+
+            
             
     def handle_song_selection(self):
         selected_item = self.songs_list.currentItem()
@@ -207,20 +229,31 @@ class MainWindow(QMainWindow):
             self.current_index = self.songs_list.currentRow()
             song_name = selected_item.data(0)
             song_folder_path = os.path.join(self.current_music_folder, song_name)
+            
+            if self.player:
+                self.player.stop()
+                self.player.setSource(QUrl())
+
             self.create_player()
+
             source = QUrl.fromLocalFile(song_folder_path)
             self.player.setSource(source)
+            self.player.play()
+
             self.playing_reproductor = True
+            print(f"Reproduciendo: {song_folder_path}")
+            self.button_play.setStyleSheet("image: url(img/play-icon.png)")
             
             
     def next_song(self):
-        if self.current_index == -1:
+        if not self.playlist_order or self.current_index == -1:
             self.status_bar.showMessage("Seleccione una canción primero", 5000)
             return
         current_position = self.playlist_order.index(self.current_index)
         next_position = (current_position + 1) % len(self.playlist_order)
         self.current_index = self.playlist_order[next_position]
 
+        print(f"Reproduciendo canción siguiente: indice {self.current_index}")
         self.songs_list.setCurrentRow(self.current_index)
         self.handle_song_selection()
 
@@ -248,9 +281,11 @@ class MainWindow(QMainWindow):
         if self.is_randomized:
             random.shuffle(self.playlist_order)  
             self.status_bar.showMessage("Modo aleatorio activado", 5000)
+            self.button_random.setStyleSheet("image: url(img/random-icon.png)")
         else:
             self.playlist_order = list(range(self.songs_list.count()))  
             self.status_bar.showMessage("Modo aleatorio desactivado", 5000)
+            self.button_random.setStyleSheet("image: url(img/random-off-icon.png)")
 
     def initialize_playlist_order(self):
         self.playlist_order = list(range(self.songs_list.count()))
@@ -258,24 +293,20 @@ class MainWindow(QMainWindow):
         
     #repetir cancion
     def toggle_repeat_mode(self):
+        if not self.current_music_folder:
+            self.status_bar.showMessage("Primero abre una carpeta de música", 5000)
+            return
+        
         self.is_repeat_mode = not self.is_repeat_mode
         if self.is_repeat_mode:
-            self.button_repeat.setStyleSheet("image: url(img/repeat-on-icon.png)")
+            self.button_repeat.setStyleSheet("image: url(img/icon-repeat.png)")
             self.status_bar.showMessage("Modo repetir activado", 5000)
         else:
             self.button_repeat.setStyleSheet("image: url(img/repeat-off-icon.png)")
             self.status_bar.showMessage("Modo repetir desactivado", 5000)
 
-    def media_status_changed(self, status):
-        if status == QMediaPlayer.MediaStatus.EndOfMedia:
-            if self.is_repeat_mode:
-                self.player.setPosition(0)
-                self.player.play()
-            else:
-                self.next_song()
-        
-            
-            
+    
+                
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
