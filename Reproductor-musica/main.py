@@ -12,6 +12,13 @@ from PyQt6.QtGui import QPixmap, QAction, QKeySequence, QIcon
 from PyQt6.QtCore import Qt, QStandardPaths
 
 import random
+from pydub import AudioSegment
+from pydub.playback import play
+import tempfile
+from pydub.effects import normalize
+import numpy as np
+import io
+from audio_processor import EqualizerPlayer, AudioProcessor
 
 class MainWindow(QMainWindow):
     
@@ -21,7 +28,7 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.current_music_folder = ""
-        self.player = None
+        self.equalizer_player = EqualizerPlayer()
         with open("styles.css", "r") as file:
             style = file.read()
         self.setStyleSheet(style)
@@ -31,7 +38,7 @@ class MainWindow(QMainWindow):
         self.current_index = -1
         self.is_repeat_mode = False 
         self.is_changing_track = False 
-        self.audioOutput = QAudioOutput()  # Inicializa aquí
+        self.audioOutput = QAudioOutput()  
         self.audioOutput.setVolume(1.0)
         
         
@@ -153,6 +160,7 @@ class MainWindow(QMainWindow):
             return
 
         self.current_music_folder = selected_folder
+        self.playlist_order = []
         icon = QIcon("img/mp3.png")
         self.songs_list.clear()
         for archivo in os.listdir(self.current_music_folder):
@@ -161,6 +169,7 @@ class MainWindow(QMainWindow):
                 item = QListWidgetItem(archivo)
                 item.setIcon(icon)
                 self.songs_list.addItem(item)
+                self.playlist_order.append(ruta_archivo)
 
         self.initialize_playlist_order()  
                 
@@ -173,45 +182,39 @@ class MainWindow(QMainWindow):
             
             
     def create_player(self): 
-        if self.player:
-            self.player.deleteLater()
-        self.player = QMediaPlayer()
-        self.audioOutput = QAudioOutput()
-        self.player.setAudioOutput(self.audioOutput)
-        self.player.mediaStatusChanged.connect(self.media_status_changed)
-        self.audioOutput.setVolume(1.0)
-        
+        if hasattr(self, 'equalizer_player'):
+            self.equalizer_player.media_player.stop()
+        self.equalizer_player = EqualizerPlayer()
             
     # Slot Handling
     def play_pause_song(self):
-        if not self.player:
+        if not hasattr(self, 'equalizer_player'):
             self.status_bar.showMessage("Seleccione una cancion antes para reproducir", 5000)
             return
         
         if self.playing_reproductor:
             self.button_play.setStyleSheet("image: url(img/stop-icon.png)")
-            self.player.pause()
+            self.equalizer_player.media_player.pause()
             self.playing_reproductor = False
         else:
             self.button_play.setStyleSheet("image: url(img/play-icon.png)")
-            self.player.play()
+            self.equalizer_player.media_player.play()
             self.playing_reproductor = True
     
 
     def media_status_changed(self, status):
         if self.is_changing_track:
             return
-        print(f"Status: {status} - Playback state: {self.player.playbackState()}")
+        print(f"Status: {status} - Playback state: {self.equalizer_player.media_player.playbackState()}")
     
         if status == QMediaPlayer.MediaStatus.EndOfMedia:
             self.is_changing_track = True
             if self.is_repeat_mode:
-                print("Reproduciendo en modo repetir")
-                self.player.setPosition(0)  
-                self.player.play()
+                self.equalizer_player.media_player.setPosition(0)
+                self.equalizer_player.media_player.play()
             else:
-                print("Pasando a la siguiente canción")
-                self.next_song()
+                from PyQt6.QtCore import QTimer
+                QTimer.singleShot(0, self.next_song)
             self.is_changing_track = False
         elif status == QMediaPlayer.MediaStatus.InvalidMedia:
             self.status_bar.showMessage("Error al cargar el archivo de audio", 5000)
@@ -232,15 +235,15 @@ class MainWindow(QMainWindow):
             song_name = selected_item.data(0)
             song_folder_path = os.path.join(self.current_music_folder, song_name)
             
-            if self.player:
-                self.player.stop()
-                self.player.setSource(QUrl())
+            if hasattr(self, 'equalizer_player'):
+                self.equalizer_player.media_player.stop()
+                self.equalizer_player.media_player.setSource(QUrl())
 
             self.create_player()
-
             source = QUrl.fromLocalFile(song_folder_path)
-            self.player.setSource(source)
-            self.player.play()
+            self.equalizer_player.play(source)
+            
+            self.equalizer_player.media_player.mediaStatusChanged.connect(self.media_status_changed)
 
             self.playing_reproductor = True
             print(f"Reproduciendo: {song_folder_path}")
@@ -251,9 +254,14 @@ class MainWindow(QMainWindow):
         if not self.playlist_order or self.current_index == -1:
             self.status_bar.showMessage("Seleccione una canción primero", 5000)
             return
-        current_position = self.playlist_order.index(self.current_index)
-        next_position = (current_position + 1) % len(self.playlist_order)
-        self.current_index = self.playlist_order[next_position]
+        
+        if self.is_randomized:
+            current_position = self.playlist_order.index(self.current_index)
+            next_position = (current_position + 1) % len(self.playlist_order)
+            self.current_index = self.playlist_order[next_position]
+        else:
+            next_index = (self.current_index + 1) % self.songs_list.count()
+            self.current_index = next_index
 
         print(f"Reproduciendo canción siguiente: indice {self.current_index}")
         self.songs_list.setCurrentRow(self.current_index)
@@ -264,10 +272,15 @@ class MainWindow(QMainWindow):
         if self.current_index == -1:
             self.status_bar.showMessage("Seleccione una canción primero", 5000)
             return
-        current_position = self.playlist_order.index(self.current_index)
-        previous_position = (current_position - 1) % len(self.playlist_order)
-        self.current_index = self.playlist_order[previous_position]
-
+        if self.is_randomized:
+            current_position = self.playlist_order.index(self.current_index)
+            previous_position = (current_position - 1) % len(self.playlist_order)
+            self.current_index = self.playlist_order[previous_position]
+        else:
+            previous_index = (self.current_index - 1) % self.songs_list.count()
+            self.current_index = previous_index
+        
+        print(f"Reproduciendo canción previa: indice {self.current_index}")
         self.songs_list.setCurrentRow(self.current_index)
         self.handle_song_selection()
         
@@ -311,22 +324,60 @@ class MainWindow(QMainWindow):
     # SETTINGS
     def generate_settings_tab(self):
         main_v_box = QVBoxLayout()
-    
-        volume_label = QLabel("Volumen predeterminado:")
+
+        # Volumen
+        volume_label = QLabel("Volumen:")
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
         self.volume_slider.setValue(100)  
         self.volume_slider.valueChanged.connect(self.update_default_volume)
-       
+
+        # Ecualizador
+        equalizer_label = QLabel("Ecualizador:")
+        self.bass_slider, bass_label = self.create_equalizer_slider("Graves")
+        self.mid_slider, mid_label = self.create_equalizer_slider("Medios")
+        self.treble_slider, treble_label = self.create_equalizer_slider("Agudos")
+
+        equalizer_layout = QVBoxLayout()
+        equalizer_layout.addWidget(equalizer_label)
+        for label, slider in [(bass_label, self.bass_slider), (mid_label, self.mid_slider), (treble_label, self.treble_slider)]:
+            equalizer_layout.addWidget(label)
+            equalizer_layout.addWidget(slider)
+
         main_v_box.addWidget(volume_label)
-        main_v_box.addWidget(self.volume_slider) 
+        main_v_box.addWidget(self.volume_slider)
+        main_v_box.addLayout(equalizer_layout)
+
         self.settings_container.setLayout(main_v_box)
+        
+        
 
     def update_default_volume(self, value):  
-        self.audioOutput.setVolume(value / 100.0)
+        if hasattr(self, 'equalizer_player'):
+            self.equalizer_player.audio_output.setVolume(value / 100.0)
         self.status_bar.showMessage(f"Volumen predeterminado actualizado a {value}%")
+     
+
+    def create_equalizer_slider(self, label_text):
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(-10, 10)
+        slider.setValue(0)
+        slider.valueChanged.connect(self.update_equalizer_settings)
+        label = QLabel(label_text)
+        return slider, label
+
+    def update_equalizer_settings(self):
+        if not hasattr(self, 'equalizer_player'):
+            self.status_bar.showMessage("No hay archivo de audio cargado para aplicar el ecualizador.", 3000)
+            return
+
+        bass_boost = self.bass_slider.value()
+        mid_boost = self.mid_slider.value()
+        treble_boost = self.treble_slider.value()
         
-        
+        self.equalizer_player.set_equalizer(bass_boost, mid_boost, treble_boost)
+        print(f"Ajustes del ecualizador - Graves: {bass_boost}, Medios: {mid_boost}, Agudos: {treble_boost}")
+                
                 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
