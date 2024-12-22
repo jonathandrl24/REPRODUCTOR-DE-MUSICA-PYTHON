@@ -31,6 +31,8 @@ class MainWindow(QMainWindow):
         self.current_index = -1
         self.is_repeat_mode = False 
         self.is_changing_track = False 
+        self.audioOutput = QAudioOutput()  # Inicializa aquí
+        self.audioOutput.setVolume(1.0)
         
         
     def initialize_ui(self):
@@ -313,31 +315,18 @@ class MainWindow(QMainWindow):
         volume_label = QLabel("Volumen predeterminado:")
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
-        self.volume_slider.setValue(100)  # Volumen predeterminado al máximo
+        self.volume_slider.setValue(100)  
         self.volume_slider.valueChanged.connect(self.update_default_volume)
-        folder_label = QLabel("Carpeta de música predeterminada:")
-        self.folder_button = QPushButton("Seleccionar carpeta")
-        self.folder_button.clicked.connect(self.select_default_folder)
-        self.default_folder_label = QLabel("(No seleccionada)")    
+       
         main_v_box.addWidget(volume_label)
-        main_v_box.addWidget(self.volume_slider)
-        main_v_box.addWidget(folder_label)
-        main_v_box.addWidget(self.folder_button)
-        main_v_box.addWidget(self.default_folder_label)    
+        main_v_box.addWidget(self.volume_slider) 
         self.settings_container.setLayout(main_v_box)
 
-    def update_default_volume(self, value):
+    def update_default_volume(self, value):  
         self.audioOutput.setVolume(value / 100.0)
         self.status_bar.showMessage(f"Volumen predeterminado actualizado a {value}%")
-
-   
-    def select_default_folder(self):
-        selected_folder = QFileDialog.getExistingDirectory(None, "Seleccione una carpeta predeterminada")
-        if selected_folder:
-            self.current_music_folder = selected_folder
-            self.default_folder_label.setText(selected_folder)
-            self.status_bar.showMessage("Carpeta predeterminada seleccionada")
-
+        
+        
                 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
