@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow,
                              QLabel, QPushButton, QDockWidget,
                              QStatusBar, QTabWidget, QWidget, QHBoxLayout,
-                             QVBoxLayout, QListWidget, QFileDialog, QListWidgetItem)
+                             QVBoxLayout, QListWidget, QFileDialog, QListWidgetItem, QSlider, QComboBox)
 import os
 
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
@@ -52,7 +52,7 @@ class MainWindow(QMainWindow):
                        "Settings")
         
         self.generate_reproductor_tab()
-        #self.generate_settings_tab()
+        self.generate_settings_tab()
         
         tab_h_box = QHBoxLayout()
         tab_h_box.addWidget(tab_bar)
@@ -304,8 +304,40 @@ class MainWindow(QMainWindow):
         else:
             self.button_repeat.setStyleSheet("image: url(img/repeat-off-icon.png)")
             self.status_bar.showMessage("Modo repetir desactivado", 5000)
-
+            
     
+    # SETTINGS
+    def generate_settings_tab(self):
+        main_v_box = QVBoxLayout()
+    
+        volume_label = QLabel("Volumen predeterminado:")
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self.volume_slider.setRange(0, 100)
+        self.volume_slider.setValue(100)  # Volumen predeterminado al máximo
+        self.volume_slider.valueChanged.connect(self.update_default_volume)
+        folder_label = QLabel("Carpeta de música predeterminada:")
+        self.folder_button = QPushButton("Seleccionar carpeta")
+        self.folder_button.clicked.connect(self.select_default_folder)
+        self.default_folder_label = QLabel("(No seleccionada)")    
+        main_v_box.addWidget(volume_label)
+        main_v_box.addWidget(self.volume_slider)
+        main_v_box.addWidget(folder_label)
+        main_v_box.addWidget(self.folder_button)
+        main_v_box.addWidget(self.default_folder_label)    
+        self.settings_container.setLayout(main_v_box)
+
+    def update_default_volume(self, value):
+        self.audioOutput.setVolume(value / 100.0)
+        self.status_bar.showMessage(f"Volumen predeterminado actualizado a {value}%")
+
+   
+    def select_default_folder(self):
+        selected_folder = QFileDialog.getExistingDirectory(None, "Seleccione una carpeta predeterminada")
+        if selected_folder:
+            self.current_music_folder = selected_folder
+            self.default_folder_label.setText(selected_folder)
+            self.status_bar.showMessage("Carpeta predeterminada seleccionada")
+
                 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
