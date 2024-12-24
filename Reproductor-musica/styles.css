@@ -110,3 +110,4 @@ QMenuBar QMenu::item:selected {
 QMenuBar QMenu::item:pressed {
     background-color: grey;
 }
+
