@@ -19,6 +19,9 @@ from pydub.effects import normalize
 import numpy as np
 import io
 from audio_processor import EqualizerPlayer, AudioProcessor
+from PyQt6.QtCore import QTimer
+from datetime import timedelta
+
 
 class MainWindow(QMainWindow):
     
@@ -40,7 +43,12 @@ class MainWindow(QMainWindow):
         self.is_changing_track = False 
         self.audioOutput = QAudioOutput()  
         self.audioOutput.setVolume(1.0)
-        
+        self.position_timer = QTimer()
+        self.position_timer.setInterval(1000)  
+        self.position_timer.timeout.connect(self.update_position)
+        self.is_slider_pressed = False
+        self.last_slider_value = 0
+        self.audio_duration = 0
         
     def initialize_ui(self):
         self.setGeometry(100, 100, 800, 500)
@@ -80,6 +88,26 @@ class MainWindow(QMainWindow):
         song_image.setPixmap(pixmap)
         song_image.setScaledContents(True)
         
+        position_layout = QHBoxLayout()
+        self.current_time_label = QLabel("0:00")
+        self.total_time_label = QLabel("0:00")
+        
+        self.position_slider = QSlider(Qt.Orientation.Horizontal)
+        self.position_slider.setRange(0, 0)
+        self.position_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.position_slider.sliderReleased.connect(self.on_slider_released)
+        self.position_slider.valueChanged.connect(self.on_slider_value_changed)
+        self.position_slider.sliderMoved.connect(self.on_slider_moved)
+        self.position_slider.setEnabled(False)
+        
+        position_layout.addWidget(self.current_time_label)
+        position_layout.addWidget(self.position_slider)
+        position_layout.addWidget(self.total_time_label)
+        
+        position_container = QWidget()
+        position_container.setLayout(position_layout)
+
+        
         self.button_repeat = QPushButton()
         self.button_repeat.setObjectName("button_repeat")
         self.button_before = QPushButton()
@@ -104,6 +132,7 @@ class MainWindow(QMainWindow):
         buttons_container.setLayout(buttons_h_box)
         
         main_v_box.addWidget(song_image)
+        main_v_box.addWidget(position_container)
         main_v_box.addWidget(buttons_container)
         
         self.reproductor_container.setLayout(main_v_box)
@@ -114,6 +143,10 @@ class MainWindow(QMainWindow):
         self.button_before.clicked.connect(self.previous_song)
         self.button_random.clicked.connect(self.toggle_randomize)
         self.button_repeat.clicked.connect(self.toggle_repeat_mode)
+        
+        
+        self.position_slider.setMouseTracking(True)
+        self.position_slider.setPageStep(0)
         
         
     def create_action(self):
@@ -195,10 +228,12 @@ class MainWindow(QMainWindow):
         if self.playing_reproductor:
             self.button_play.setStyleSheet("image: url(img/stop-icon.png)")
             self.equalizer_player.media_player.pause()
+            self.position_timer.stop()
             self.playing_reproductor = False
         else:
             self.button_play.setStyleSheet("image: url(img/play-icon.png)")
             self.equalizer_player.media_player.play()
+            self.position_timer.start()
             self.playing_reproductor = True
     
 
@@ -229,6 +264,7 @@ class MainWindow(QMainWindow):
             
             
     def handle_song_selection(self):
+        self.position_slider.setEnabled(True)
         selected_item = self.songs_list.currentItem()
         if selected_item:
             self.current_index = self.songs_list.currentRow()
@@ -241,7 +277,12 @@ class MainWindow(QMainWindow):
 
             self.create_player()
             source = QUrl.fromLocalFile(song_folder_path)
+            self.equalizer_player.media_player.durationChanged.connect(self.update_duration)
+            self.equalizer_player.media_player.positionChanged.connect(self.position_changed)
+            self.equalizer_player.media_player.mediaStatusChanged.connect(self.media_status_changed)
+            
             self.equalizer_player.play(source)
+            self.position_timer.start()
             
             self.equalizer_player.media_player.mediaStatusChanged.connect(self.media_status_changed)
 
@@ -377,6 +418,60 @@ class MainWindow(QMainWindow):
         
         self.equalizer_player.set_equalizer(bass_boost, mid_boost, treble_boost)
         print(f"Ajustes del ecualizador - Graves: {bass_boost}, Medios: {mid_boost}, Agudos: {treble_boost}")
+        
+    # POSITION SLIDER IMPL
+    def format_time(self, milliseconds):
+        seconds = int(milliseconds / 1000)
+        minutes = seconds // 60
+        seconds = seconds % 60
+        return f"{minutes:02d}:{seconds:02d}"
+        
+    def update_duration(self, duration):
+        self.audio_duration = duration
+        self.position_slider.setRange(0, duration)
+        self.total_time_label.setText(self.format_time(duration))
+        print(f"Duration updated: {duration}ms")
+        
+    def set_position(self, position):
+        if hasattr(self, 'equalizer_player'):
+            self.equalizer_player.media_player.setPosition(position)
+    
+    def on_slider_pressed(self):
+        self.is_slider_pressed = True
+        if hasattr(self, 'equalizer_player'):
+            self.was_playing = self.playing_reproductor
+            self.equalizer_player.media_player.pause()
+            
+            
+    def on_slider_released(self):
+        self.is_slider_pressed = False
+        if hasattr(self, 'equalizer_player'):
+            position = self.position_slider.value()
+            self.equalizer_player.media_player.setPosition(position)
+            if self.was_playing:
+                self.equalizer_player.media_player.play()
+                self.playing_reproductor = True
+                self.button_play.setStyleSheet("image: url(img/play-icon.png)")
+
+
+    def on_slider_moved(self, position):
+        self.current_time_label.setText(self.format_time(position))
+        self.last_slider_value = position
+
+    def on_slider_value_changed(self, value):
+        if not self.is_slider_pressed and hasattr(self, 'equalizer_player'):
+            self.equalizer_player.media_player.setPosition(value)
+            self.current_time_label.setText(self.format_time(value))
+
+    def position_changed(self, position):
+        if not self.position_slider.isSliderDown():
+            self.position_slider.setValue(position)
+            self.current_time_label.setText(self.format_time(position))
+
+    def update_position(self):
+        if hasattr(self, 'equalizer_player') and self.playing_reproductor:
+            position = self.equalizer_player.media_player.position()
+            self.position_changed(position)
                 
                 
 if __name__ == "__main__":
