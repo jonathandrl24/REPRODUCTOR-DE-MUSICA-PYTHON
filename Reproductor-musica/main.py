@@ -18,9 +18,11 @@ import tempfile
 from pydub.effects import normalize
 import numpy as np
 import io
-from audio_processor import EqualizerPlayer, AudioProcessor
+from audio_processor import EqualizerPlayer
 from PyQt6.QtCore import QTimer
 from datetime import timedelta
+
+import vlc
 
 
 class MainWindow(QMainWindow):
@@ -31,7 +33,10 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.current_music_folder = ""
+        
         self.equalizer_player = EqualizerPlayer()
+        self.setup_media_player_connections()
+        
         with open("styles.css", "r") as file:
             style = file.read()
         self.setStyleSheet(style)
@@ -41,14 +46,21 @@ class MainWindow(QMainWindow):
         self.current_index = -1
         self.is_repeat_mode = False 
         self.is_changing_track = False 
-        self.audioOutput = QAudioOutput()  
-        self.audioOutput.setVolume(1.0)
-        self.position_timer = QTimer()
-        self.position_timer.setInterval(1000)  
-        self.position_timer.timeout.connect(self.update_position)
         self.is_slider_pressed = False
         self.last_slider_value = 0
         self.audio_duration = 0
+        
+        self.position_timer = QTimer()
+        self.position_timer.setInterval(1000)  
+        self.position_timer.timeout.connect(self.update_position)
+    
+        
+    def setup_media_player_connections(self):
+        if hasattr(self, 'equalizer_player'):
+            player = self.equalizer_player.media_player
+            player.durationChanged.connect(self.update_duration)
+            player.positionChanged.connect(self.position_changed)
+            player.mediaStatusChanged.connect(self.media_status_changed)
         
     def initialize_ui(self):
         self.setGeometry(100, 100, 800, 500)
@@ -269,26 +281,31 @@ class MainWindow(QMainWindow):
         if selected_item:
             self.current_index = self.songs_list.currentRow()
             song_name = selected_item.data(0)
-            song_folder_path = os.path.join(self.current_music_folder, song_name)
+            song_path = os.path.join(self.current_music_folder, song_name)
             
-            if hasattr(self, 'equalizer_player'):
-                self.equalizer_player.media_player.stop()
-                self.equalizer_player.media_player.setSource(QUrl())
-
-            self.create_player()
-            source = QUrl.fromLocalFile(song_folder_path)
-            self.equalizer_player.media_player.durationChanged.connect(self.update_duration)
-            self.equalizer_player.media_player.positionChanged.connect(self.position_changed)
-            self.equalizer_player.media_player.mediaStatusChanged.connect(self.media_status_changed)
+            self.equalizer_player.media_player.stop()
             
+            source = QUrl.fromLocalFile(song_path)
             self.equalizer_player.play(source)
             self.position_timer.start()
             
-            self.equalizer_player.media_player.mediaStatusChanged.connect(self.media_status_changed)
-
+            success = self.equalizer_player.play(QUrl.fromLocalFile(song_path))
+        
+            if not success:
+                self.status_bar.showMessage("Error: Codec support not available for this file format", 5000)
+                return
+            
             self.playing_reproductor = True
-            print(f"Reproduciendo: {song_folder_path}")
+            print(f"Reproduciendo: {song_path}")
             self.button_play.setStyleSheet("image: url(img/play-icon.png)")
+            
+            
+    def convert_to_wav(mp3_path):
+        from pydub import AudioSegment
+        audio = AudioSegment.from_mp3(mp3_path)
+        wav_path = mp3_path.rsplit('.', 1)[0] + '.wav'
+        audio.export(wav_path, format='wav')
+        return wav_path
             
             
     def next_song(self):
@@ -394,9 +411,8 @@ class MainWindow(QMainWindow):
         
 
     def update_default_volume(self, value):  
-        if hasattr(self, 'equalizer_player'):
-            self.equalizer_player.audio_output.setVolume(value / 100.0)
-        self.status_bar.showMessage(f"Volumen predeterminado actualizado a {value}%")
+        self.equalizer_player.audio_output.setVolume(value / 100.0)
+        self.status_bar.showMessage(f"Volumen actualizado a {value}%")
      
 
     def create_equalizer_slider(self, label_text):
@@ -408,10 +424,6 @@ class MainWindow(QMainWindow):
         return slider, label
 
     def update_equalizer_settings(self):
-        if not hasattr(self, 'equalizer_player'):
-            self.status_bar.showMessage("No hay archivo de audio cargado para aplicar el ecualizador.", 3000)
-            return
-
         bass_boost = self.bass_slider.value()
         mid_boost = self.mid_slider.value()
         treble_boost = self.treble_slider.value()
@@ -460,7 +472,6 @@ class MainWindow(QMainWindow):
 
     def on_slider_value_changed(self, value):
         if not self.is_slider_pressed and hasattr(self, 'equalizer_player'):
-            self.equalizer_player.media_player.setPosition(value)
             self.current_time_label.setText(self.format_time(value))
 
     def position_changed(self, position):

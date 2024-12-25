@@ -1,0 +1,2 @@
+# Ignorar Qt6WebEngineCore.dll dentro de venv/Lib/site-packages/PyQt6/Qt6/bin/
+venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6WebEngineCore.dll
