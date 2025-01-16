@@ -70,7 +70,7 @@ class MainWindow(QMainWindow):
         self.create_action()
         self.create_menu()
         self.show()
-        
+    # GENERAR VISTA     
     def generate_main_window(self):
         tab_bar = QTabWidget(self)
         self.reproductor_container = QWidget()
@@ -149,7 +149,7 @@ class MainWindow(QMainWindow):
         
         self.reproductor_container.setLayout(main_v_box)
         
-        # Implementacion botones
+        # Implementacion botones de reproduccion
         self.button_play.clicked.connect(self.play_pause_song)
         self.button_next.clicked.connect(self.next_song)
         self.button_before.clicked.connect(self.previous_song)
@@ -160,7 +160,7 @@ class MainWindow(QMainWindow):
         self.position_slider.setMouseTracking(True)
         self.position_slider.setPageStep(0)
         
-        
+    # Implementar acciones del menu    
     def create_action(self):
         self.listar_musica_action = QAction("Listar Musica",self, checkable=True)
         self.listar_musica_action.setShortcut(QKeySequence("Ctrl+L"))
@@ -172,7 +172,8 @@ class MainWindow(QMainWindow):
         self.open_folder_music_action.setShortcut(QKeySequence("Ctrl+O"))
         self.open_folder_music_action.setStatusTip("Aqui puedes Abrir una carpeta con la musica a reproducir")
         self.open_folder_music_action.triggered.connect(self.open_folder_music)
-        
+    
+    # menu superior    
     def create_menu(self):
         self.menuBar()
         
@@ -194,7 +195,7 @@ class MainWindow(QMainWindow):
         self.dock.setWidget(self.songs_list)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
         
-        
+    # abrir carpeta musica    
     def open_folder_music(self):
         initial_dir = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.MusicLocation
@@ -248,7 +249,7 @@ class MainWindow(QMainWindow):
             self.position_timer.start()
             self.playing_reproductor = True
     
-
+    # estado de canciones 
     def media_status_changed(self, status):
         if self.is_changing_track:
             return
@@ -271,10 +272,8 @@ class MainWindow(QMainWindow):
             print("Archivo cargado correctamente.")
         elif status == QMediaPlayer.MediaStatus.BufferingMedia:
             print("Bufferizando audio...")
-
-
-            
-            
+         
+    # se encarga de gestionar las canciones        
     def handle_song_selection(self):
         self.position_slider.setEnabled(True)
         selected_item = self.songs_list.currentItem()
@@ -299,15 +298,8 @@ class MainWindow(QMainWindow):
             print(f"Reproduciendo: {song_path}")
             self.button_play.setStyleSheet("image: url(img/play-icon.png)")
             
-            
-    def convert_to_wav(mp3_path):
-        from pydub import AudioSegment
-        audio = AudioSegment.from_mp3(mp3_path)
-        wav_path = mp3_path.rsplit('.', 1)[0] + '.wav'
-        audio.export(wav_path, format='wav')
-        return wav_path
-            
-            
+                      
+    # siguiente cancion        
     def next_song(self):
         if not self.playlist_order or self.current_index == -1:
             self.status_bar.showMessage("Seleccione una canción primero", 5000)
@@ -325,7 +317,7 @@ class MainWindow(QMainWindow):
         self.songs_list.setCurrentRow(self.current_index)
         self.handle_song_selection()
 
-
+    # cancion anterior
     def previous_song(self):
         if self.current_index == -1:
             self.status_bar.showMessage("Seleccione una canción primero", 5000)
